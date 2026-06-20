@@ -76,6 +76,7 @@ matches the GUI surface:
 | Write session manifest | `write-session-manifest --out <manifest.json> [--artifact <label=path>] [--json]` |
 | Verify session manifest | `verify-session-manifest --path <manifest.json> [--base-dir <dir>] [--json]` |
 | Record runtime-state LSL | `record-runtime-state-lsl --out <runtime_state_lsl.csv> [--idle-timeout-ms <ms>] [--json]` |
+| Open block through LSL signal | `open-block-lsl --block 1|2|3 --session-id <id> --participant-ref <ref> --runtime-package <package> [--python-helper] [--json]` |
 | Open Block 1 | `open-block --block 1 --session-id <id> --participant-ref <ref> --language-code <en-or-de> --endpoint <url>` |
 | Open Block 2 | `open-block --block 2 --session-id <id> --participant-ref <ref> --language-code <en-or-de> --endpoint <url>` |
 | Open Block 3 | `open-block --block 3 --session-id <id> --participant-ref <ref> --language-code <en-or-de> --endpoint <url>` |
@@ -232,6 +233,22 @@ runtime-state columns as the Quest-local `runtime_state_samples.csv`. It needs
 `lsl.dll` on Windows via `VISCEREALITY_LSL_DLL`, beside the executable, or a
 standard `%USERPROFILE%\Tools\liblsl\<version>\bin` install. It does not send
 commands to Unity.
+
+For questionnaire block opening over LSL, keep the Unity session lifecycle on
+HTTP, then send a low-rate operator signal:
+
+```powershell
+cargo run --manifest-path operator\makepad-quest-questionnaire-operator\Cargo.toml --bin quest-questionnaire-operator-cli -- open-block-lsl --block 3 --session-id <session-id> --participant-ref <participant-ref> --runtime-package <unity-package> --condition-id <condition-id> --python-helper --json
+```
+
+The signal stream is `peripersonal_operator_signal /
+peripersonal.operator.signal` with four float32 channels
+`[action_code, block_number, sequence, reserved]`; action code `1` opens block
+1/2/3. Unity ignores repeated samples with the same action/block/sequence after
+the first accepted signal. If the native Rust `lsl.dll` outlet is visible to
+local Windows receivers but not to Quest, add a Windows Firewall allow rule for
+the operator executable or use `--python-helper` with installed `python` +
+`pylsl`.
 
 When `--audit-dir` is supplied, runtime HTTP helpers append
 `command_audit.jsonl` with the command request, bridge response, timing, and

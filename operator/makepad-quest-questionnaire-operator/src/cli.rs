@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::device;
-use crate::lsl_runtime::{self, RuntimeStateLslRecordingOptions};
+use crate::lsl_runtime::{
+    self, OperatorCommandLslSendOptions, OperatorSignalLslSendOptions,
+    RuntimeStateLslRecordingOptions,
+};
 use crate::profile::{OperatorGuiProfile, OperatorGuiProfileFields};
 use crate::protocol::{
     block_by_number, endpoint_url, validate_runtime_status, BridgeStatusResponse,
@@ -436,7 +439,7 @@ impl RuntimeExportArgs {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum CliCommand {
     Status {
         endpoint: String,
@@ -534,6 +537,24 @@ pub enum CliCommand {
     },
     RecordRuntimeStateLsl {
         options: RuntimeStateLslRecordingOptions,
+        json: bool,
+    },
+    PostCommandLsl {
+        file: PathBuf,
+        options: OperatorCommandLslSendOptions,
+        json: bool,
+    },
+    OpenBlockLsl {
+        common: RuntimeCommonArgs,
+        block: u8,
+        session_id: String,
+        participant_ref: String,
+        study_id: String,
+        questionnaire_id: String,
+        language_code: String,
+        condition_id: String,
+        condition_number: i32,
+        options: OperatorSignalLslSendOptions,
         json: bool,
     },
     OpenBlock {
@@ -722,6 +743,36 @@ pub fn run(args: Vec<String>) -> Result<String, String> {
         CliCommand::RecordRuntimeStateLsl { options, json } => {
             record_runtime_state_lsl_command(&options, json)
         }
+        CliCommand::PostCommandLsl {
+            file,
+            options,
+            json,
+        } => post_command_lsl_file(&file, &options, json),
+        CliCommand::OpenBlockLsl {
+            common,
+            block,
+            session_id,
+            participant_ref,
+            study_id,
+            questionnaire_id,
+            language_code,
+            condition_id,
+            condition_number,
+            options,
+            json,
+        } => open_block_lsl(
+            common,
+            block,
+            &session_id,
+            &participant_ref,
+            &study_id,
+            &questionnaire_id,
+            &language_code,
+            &condition_id,
+            condition_number,
+            &options,
+            json,
+        ),
         CliCommand::OpenBlock {
             endpoint,
             block,
@@ -1983,6 +2034,98 @@ pub fn record_runtime_state_lsl_command(
             report.stream_name,
             report.stream_type,
             report.out.display()
+        ))
+    }
+}
+
+pub fn post_command_lsl_file(
+    file: &Path,
+    options: &OperatorCommandLslSendOptions,
+    json: bool,
+) -> Result<String, String> {
+    let command_json = fs::read_to_string(file).map_err(|err| {
+        format!(
+            "Could not read LSL operator command JSON file {}: {err}",
+            file.display()
+        )
+    })?;
+    let mut send_options = options.clone();
+    send_options.command_json = command_json;
+    send_operator_command_lsl_command(&send_options, json)
+}
+
+pub fn open_block_lsl(
+    common: RuntimeCommonArgs,
+    block: u8,
+    session_id: &str,
+    participant_ref: &str,
+    _study_id: &str,
+    _questionnaire_id: &str,
+    _language_code: &str,
+    _condition_id: &str,
+    condition_number: i32,
+    options: &OperatorSignalLslSendOptions,
+    json: bool,
+) -> Result<String, String> {
+    let block_number = block;
+    let block =
+        block_by_number(block_number).ok_or_else(|| "Block must be 1, 2, or 3".to_string())?;
+    if session_id.trim().is_empty() {
+        return Err("open-block-lsl requires --session-id".to_string());
+    }
+    if participant_ref.trim().is_empty() {
+        return Err("open-block-lsl requires --participant-ref".to_string());
+    }
+    if common.target_runtime_package.trim().is_empty() {
+        return Err("open-block-lsl requires --runtime-package".to_string());
+    }
+
+    let condition_index = if condition_number >= 0 {
+        condition_number
+    } else {
+        block
+            .command_name
+            .strip_prefix("maia_spatial.block")
+            .and_then(|raw| raw.parse::<i32>().ok())
+            .unwrap_or(-1)
+    };
+    let mut send_options = options.clone();
+    let sequence = (unix_ms() % 1_000_000) as f32;
+    send_options.values = vec![1.0, block_number as f32, sequence, condition_index as f32];
+    send_operator_signal_lsl_command(&send_options, json)
+}
+
+fn send_operator_command_lsl_command(
+    options: &OperatorCommandLslSendOptions,
+    json: bool,
+) -> Result<String, String> {
+    let report = lsl_runtime::send_operator_command_lsl_json(options)?;
+    if json {
+        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())
+    } else if report.ack_received {
+        Ok(format!(
+            "Pushed LSL operator command to {} / {}; ack received; accepted={}.",
+            report.stream_name, report.stream_type, report.accepted
+        ))
+    } else {
+        Ok(format!(
+            "Pushed LSL operator command to {} / {}; ack was not requested.",
+            report.stream_name, report.stream_type
+        ))
+    }
+}
+
+fn send_operator_signal_lsl_command(
+    options: &OperatorSignalLslSendOptions,
+    json: bool,
+) -> Result<String, String> {
+    let report = lsl_runtime::send_operator_signal_lsl_floats(options)?;
+    if json {
+        serde_json::to_string_pretty(&report).map_err(|err| err.to_string())
+    } else {
+        Ok(format!(
+            "Pushed LSL operator signal to {} / {} ({} float channels).",
+            report.stream_name, report.stream_type, report.channel_count
         ))
     }
 }
@@ -4582,6 +4725,97 @@ pub fn parse_args(args: Vec<String>) -> Result<CliCommand, String> {
             }
             Ok(CliCommand::RecordRuntimeStateLsl { options, json })
         }
+        "post-command-lsl" | "push-command-lsl" => {
+            let mut file: Option<PathBuf> = None;
+            let mut options = OperatorCommandLslSendOptions::default();
+            let mut json = false;
+            while let Some(arg) = iter.next() {
+                if parse_lsl_command_arg(&arg, &mut iter, &mut options)? {
+                    continue;
+                }
+                match arg.as_str() {
+                    "--file" => file = Some(PathBuf::from(next_value(&mut iter, "--file")?)),
+                    "--json" => json = true,
+                    "-h" | "--help" => return Ok(CliCommand::Help),
+                    _ => return Err(format!("Unknown post-command-lsl argument: {arg}")),
+                }
+            }
+            Ok(CliCommand::PostCommandLsl {
+                file: file.ok_or_else(|| "post-command-lsl requires --file".to_string())?,
+                options,
+                json,
+            })
+        }
+        "open-block-lsl" => {
+            let mut common = RuntimeCommonArgs::default();
+            let mut options = OperatorSignalLslSendOptions::default();
+            let mut block: Option<u8> = None;
+            let mut session_id: Option<String> = None;
+            let mut participant_ref: Option<String> = None;
+            let mut study_id = STUDY_ID.to_string();
+            let mut questionnaire_id = SCHEMA_ID.to_string();
+            let mut language_code = "en".to_string();
+            let mut condition_id = String::new();
+            let mut condition_number = -1;
+            let mut json = false;
+            while let Some(arg) = iter.next() {
+                if parse_runtime_common_arg(&arg, &mut iter, &mut common)? {
+                    continue;
+                }
+                if parse_lsl_signal_arg(&arg, &mut iter, &mut options)? {
+                    continue;
+                }
+                match arg.as_str() {
+                    "--block" => {
+                        let raw = next_value(&mut iter, "--block")?;
+                        block = Some(
+                            raw.parse::<u8>()
+                                .map_err(|_| "--block must be 1, 2, or 3".to_string())?,
+                        );
+                    }
+                    "--session-id" | "--session" => {
+                        session_id = Some(next_value(&mut iter, "--session-id")?);
+                    }
+                    "--participant-ref" | "--participant" => {
+                        participant_ref = Some(next_value(&mut iter, "--participant-ref")?);
+                    }
+                    "--study-id" => study_id = next_value(&mut iter, "--study-id")?,
+                    "--questionnaire-id" | "--schema-id" => {
+                        questionnaire_id = next_value(&mut iter, "--questionnaire-id")?
+                    }
+                    "--language-code" | "--language" => {
+                        language_code = next_value(&mut iter, "--language-code")?;
+                    }
+                    "--condition-id" => condition_id = next_value(&mut iter, "--condition-id")?,
+                    "--condition-number" => {
+                        condition_number = parse_i32(
+                            &next_value(&mut iter, "--condition-number")?,
+                            "--condition-number",
+                        )?
+                    }
+                    "--json" => json = true,
+                    "-h" | "--help" => return Ok(CliCommand::Help),
+                    _ => return Err(format!("Unknown open-block-lsl argument: {arg}")),
+                }
+            }
+            Ok(CliCommand::OpenBlockLsl {
+                common,
+                block: block.ok_or_else(|| "open-block-lsl requires --block".to_string())?,
+                session_id: session_id
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| "open-block-lsl requires --session-id".to_string())?,
+                participant_ref: participant_ref
+                    .filter(|value| !value.trim().is_empty())
+                    .ok_or_else(|| "open-block-lsl requires --participant-ref".to_string())?,
+                study_id,
+                questionnaire_id,
+                language_code,
+                condition_id,
+                condition_number,
+                options,
+                json,
+            })
+        }
         "open-block" => {
             let mut endpoint = DEFAULT_ENDPOINT.to_string();
             let mut block: Option<u8> = None;
@@ -5066,6 +5300,113 @@ fn parse_runtime_common_arg(
     }
 }
 
+fn parse_lsl_command_arg(
+    arg: &str,
+    iter: &mut impl Iterator<Item = String>,
+    options: &mut OperatorCommandLslSendOptions,
+) -> Result<bool, String> {
+    match arg {
+        "--stream-name" | "--name" => {
+            options.stream_name = next_value(iter, "--stream-name")?;
+            Ok(true)
+        }
+        "--stream-type" | "--type" => {
+            options.stream_type = next_value(iter, "--stream-type")?;
+            Ok(true)
+        }
+        "--source-id" => {
+            options.source_id = next_value(iter, "--source-id")?;
+            Ok(true)
+        }
+        "--warmup-ms" => {
+            options.warmup_ms = parse_u64(&next_value(iter, "--warmup-ms")?, "--warmup-ms")?;
+            Ok(true)
+        }
+        "--post-push-hold-ms" => {
+            options.post_push_hold_ms = parse_u64(
+                &next_value(iter, "--post-push-hold-ms")?,
+                "--post-push-hold-ms",
+            )?;
+            Ok(true)
+        }
+        "--wait-ack" => {
+            options.wait_for_ack = true;
+            Ok(true)
+        }
+        "--no-wait-ack" => {
+            options.wait_for_ack = false;
+            Ok(true)
+        }
+        "--ack-stream-name" | "--ack-name" => {
+            options.ack_stream_name = next_value(iter, "--ack-stream-name")?;
+            Ok(true)
+        }
+        "--ack-stream-type" | "--ack-type" => {
+            options.ack_stream_type = next_value(iter, "--ack-stream-type")?;
+            Ok(true)
+        }
+        "--ack-timeout-ms" => {
+            options.ack_timeout_ms =
+                parse_u64(&next_value(iter, "--ack-timeout-ms")?, "--ack-timeout-ms")?;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
+fn parse_lsl_signal_arg(
+    arg: &str,
+    iter: &mut impl Iterator<Item = String>,
+    options: &mut OperatorSignalLslSendOptions,
+) -> Result<bool, String> {
+    match arg {
+        "--stream-name" | "--name" => {
+            options.stream_name = next_value(iter, "--stream-name")?;
+            Ok(true)
+        }
+        "--stream-type" | "--type" => {
+            options.stream_type = next_value(iter, "--stream-type")?;
+            Ok(true)
+        }
+        "--source-id" => {
+            options.source_id = next_value(iter, "--source-id")?;
+            Ok(true)
+        }
+        "--python-helper" => {
+            options.python_helper = true;
+            Ok(true)
+        }
+        "--native-lsl" => {
+            options.python_helper = false;
+            Ok(true)
+        }
+        "--warmup-ms" => {
+            options.warmup_ms = parse_u64(&next_value(iter, "--warmup-ms")?, "--warmup-ms")?;
+            Ok(true)
+        }
+        "--repeat-count" => {
+            options.repeat_count =
+                parse_u32(&next_value(iter, "--repeat-count")?, "--repeat-count")?;
+            Ok(true)
+        }
+        "--repeat-interval-ms" => {
+            options.repeat_interval_ms = parse_u64(
+                &next_value(iter, "--repeat-interval-ms")?,
+                "--repeat-interval-ms",
+            )?;
+            Ok(true)
+        }
+        "--post-push-hold-ms" => {
+            options.post_push_hold_ms = parse_u64(
+                &next_value(iter, "--post-push-hold-ms")?,
+                "--post-push-hold-ms",
+            )?;
+            Ok(true)
+        }
+        _ => Ok(false),
+    }
+}
+
 fn next_value(iter: &mut impl Iterator<Item = String>, flag: &str) -> Result<String, String> {
     iter.next()
         .filter(|value| !value.trim().is_empty())
@@ -5083,6 +5424,14 @@ fn parse_u16(value: &str, flag: &str) -> Result<u16, String> {
 fn parse_u64(value: &str, flag: &str) -> Result<u64, String> {
     value
         .parse::<u64>()
+        .ok()
+        .filter(|number| *number > 0)
+        .ok_or_else(|| format!("{flag} must be a positive integer"))
+}
+
+fn parse_u32(value: &str, flag: &str) -> Result<u32, String> {
+    value
+        .parse::<u32>()
         .ok()
         .filter(|number| *number > 0)
         .ok_or_else(|| format!("{flag} must be a positive integer"))
@@ -5290,6 +5639,8 @@ fn help_text() -> String {
         "  verify-session-manifest --path FILE [--base-dir DIR] [--json]".to_string(),
         "  write-session-manifest --out FILE [--session-id ID] [--participant-ref REF] [--study-id ID] [--dataset-id ID] [--runtime-package PACKAGE] [--runtime-build-tag TAG] [--source-scene-path PATH] [--artifact LABEL=PATH] [--json]".to_string(),
         "  record-runtime-state-lsl --out operator-runtime-state-lsl.csv [--stream-name peripersonal_runtime_state] [--stream-type peripersonal.runtime.state] [--source-id-prefix PREFIX] [--resolve-timeout-ms MS] [--idle-timeout-ms MS] [--duration-ms MS] [--max-samples N] [--json]".to_string(),
+        "  post-command-lsl --file command.json [--stream-name peripersonal_operator_command] [--stream-type peripersonal.operator.command] [--wait-ack] [--ack-timeout-ms MS] [--json]".to_string(),
+        "  open-block-lsl --block 1|2|3 --session-id ID --participant-ref REF --runtime-package PACKAGE [--stream-name peripersonal_operator_signal] [--stream-type peripersonal.operator.signal] [--python-helper] [--warmup-ms MS] [--repeat-count N] [--repeat-interval-ms MS] [--json]".to_string(),
         "  open-block --block 1|2|3 --session-id ID --participant-ref REF [--language-code en] [--endpoint URL] [--command-id ID] [--debug-auto-submit] [--debug-command-script SCRIPT] [--debug-command-interval-ms MS]".to_string(),
         "  dismiss --session-id ID [--endpoint URL] [--command-id ID]".to_string(),
         "  start-session --session-id ID --participant-ref REF [--endpoint URL] [--protocol-version VERSION] [--runtime-kind KIND] [--runtime-package PACKAGE] [--study-id ID] [--condition-id ID] [--language-code en] [--runtime-build-tag TAG] [--source-scene-path PATH] [--apk-sha256 SHA256] [--source-commit SHA] [--command-id ID] [--command-name NAME] [--audit-dir DIR]".to_string(),
@@ -5766,6 +6117,88 @@ mod tests {
                     duration_ms: Some(10000),
                     max_samples: Some(3),
                 },
+                json: true,
+            }
+        );
+    }
+
+    #[test]
+    fn parses_post_command_lsl_command() {
+        let command = parse_args(vec![
+            "post-command-lsl".to_string(),
+            "--file".to_string(),
+            "command.json".to_string(),
+            "--stream-name".to_string(),
+            "operator_commands".to_string(),
+            "--ack-timeout-ms".to_string(),
+            "3000".to_string(),
+            "--no-wait-ack".to_string(),
+            "--json".to_string(),
+        ])
+        .unwrap();
+
+        let mut options = OperatorCommandLslSendOptions::default();
+        options.stream_name = "operator_commands".to_string();
+        options.ack_timeout_ms = 3000;
+        options.wait_for_ack = false;
+        assert_eq!(
+            command,
+            CliCommand::PostCommandLsl {
+                file: PathBuf::from("command.json"),
+                options,
+                json: true,
+            }
+        );
+    }
+
+    #[test]
+    fn parses_open_block_lsl_command() {
+        let command = parse_args(vec![
+            "open-block-lsl".to_string(),
+            "--block".to_string(),
+            "3".to_string(),
+            "--session-id".to_string(),
+            "session-1".to_string(),
+            "--participant-ref".to_string(),
+            "P001".to_string(),
+            "--runtime-package".to_string(),
+            "com.Viscereality.Condition".to_string(),
+            "--condition-id".to_string(),
+            "peri-personal-right-anchor-only".to_string(),
+            "--stream-name".to_string(),
+            "operator_signal_test".to_string(),
+            "--python-helper".to_string(),
+            "--warmup-ms".to_string(),
+            "7000".to_string(),
+            "--repeat-count".to_string(),
+            "5".to_string(),
+            "--repeat-interval-ms".to_string(),
+            "100".to_string(),
+            "--json".to_string(),
+        ])
+        .unwrap();
+
+        let mut common = RuntimeCommonArgs::default();
+        common.target_runtime_package = "com.Viscereality.Condition".to_string();
+        let mut options = OperatorSignalLslSendOptions::default();
+        options.stream_name = "operator_signal_test".to_string();
+        options.python_helper = true;
+        options.warmup_ms = 7000;
+        options.repeat_count = 5;
+        options.repeat_interval_ms = 100;
+        assert_eq!(
+            command,
+            CliCommand::OpenBlockLsl {
+                common,
+                block: 3,
+                session_id: "session-1".to_string(),
+                participant_ref: "P001".to_string(),
+                study_id: STUDY_ID.to_string(),
+                questionnaire_id: SCHEMA_ID.to_string(),
+                language_code: "en".to_string(),
+                condition_id: "peri-personal-right-anchor-only".to_string(),
+                condition_number: -1,
+                options,
                 json: true,
             }
         );

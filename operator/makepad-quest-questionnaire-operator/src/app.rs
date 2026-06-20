@@ -1,4 +1,6 @@
+use std::fs;
 use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use makepad_widgets::*;
 use serde::Serialize;
@@ -8,6 +10,7 @@ use crate::cli::{
     pull_target_session as pull_target_session_command, verify_target_apk_command,
 };
 use crate::device;
+use crate::lsl_runtime::{send_operator_signal_lsl_floats, OperatorSignalLslSendOptions};
 use crate::profile::{load_operator_gui_profile, OperatorGuiProfileFields};
 use crate::protocol::{
     endpoint_url, runtime_session_remote_relative_from_session_dir, validate_runtime_status,
@@ -439,6 +442,18 @@ script_mod! {
                                             width: 260
                                             text: "Open Block 3"
                                         }
+                                        lsl_block1_button := SecondaryButton{
+                                            width: 260
+                                            text: "LSL Block 1"
+                                        }
+                                        lsl_block2_button := SecondaryButton{
+                                            width: 260
+                                            text: "LSL Block 2"
+                                        }
+                                        lsl_block3_button := SecondaryButton{
+                                            width: 260
+                                            text: "LSL Block 3"
+                                        }
                                     }
                                 }
 
@@ -507,6 +522,13 @@ struct RuntimePreflightApproval {
     source_scene_path: String,
 }
 
+fn unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or_default()
+}
+
 #[derive(Script, ScriptHook)]
 pub struct App {
     #[live]
@@ -519,6 +541,8 @@ pub struct App {
     pending_request: Option<PendingRequest>,
     #[rust]
     runtime_preflight_approval: Option<RuntimePreflightApproval>,
+    #[rust]
+    auto_lsl_checked: bool,
 }
 
 impl App {
@@ -986,6 +1010,87 @@ impl App {
         );
 
         self.send_command_request(cx, url, body, &format!("Sending {}", block.label));
+    }
+
+    fn send_lsl_block_request(&mut self, cx: &mut Cx, block_number: u8) {
+        let session_id = self.field_text(cx, ids!(session_input));
+        if session_id.is_empty() {
+            self.set_status(cx, "LSL signal error", "Session ID is required.");
+            return;
+        }
+
+        let participant_ref = self.field_text(cx, ids!(participant_input));
+        if participant_ref.is_empty() {
+            self.set_status(cx, "LSL signal error", "Participant ref is required.");
+            return;
+        }
+
+        let sequence = (unix_ms() % 1_000_000) as f32;
+        let mut options = OperatorSignalLslSendOptions::default();
+        options.python_helper = true;
+        options.values = vec![1.0, block_number as f32, sequence, block_number as f32];
+
+        self.set_status(
+            cx,
+            "LSL signal",
+            &format!("Sending Block {block_number} through peripersonal_operator_signal."),
+        );
+
+        match send_operator_signal_lsl_floats(&options) {
+            Ok(report) => {
+                let report_json = serde_json::to_string_pretty(&report)
+                    .unwrap_or_else(|_| "LSL signal sent.".to_string());
+                self.write_lsl_report_if_requested(&report_json);
+                self.set_status(
+                    cx,
+                    "LSL signal sent",
+                    &format!("Block {block_number} sent via {}.", report.sender_kind),
+                );
+                self.set_last_response(cx, &report_json);
+            }
+            Err(err) => {
+                self.write_lsl_report_if_requested(&err);
+                self.set_status(cx, "LSL signal error", &err);
+                self.set_last_response(cx, &err);
+            }
+        }
+    }
+
+    fn write_lsl_report_if_requested(&self, text: &str) {
+        let Ok(path) = std::env::var("VISCEREALITY_OPERATOR_GUI_LSL_REPORT") else {
+            return;
+        };
+        if path.trim().is_empty() {
+            return;
+        }
+        let path = PathBuf::from(path);
+        if let Some(parent) = path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let _ = fs::write(path, text);
+    }
+
+    fn maybe_auto_send_lsl_block(&mut self, cx: &mut Cx) {
+        if self.auto_lsl_checked {
+            return;
+        }
+        self.auto_lsl_checked = true;
+
+        let Ok(raw_block) = std::env::var("VISCEREALITY_OPERATOR_GUI_AUTO_LSL_BLOCK") else {
+            return;
+        };
+        let block_number = match raw_block.trim().parse::<u8>() {
+            Ok(block_number @ 1..=3) => block_number,
+            _ => {
+                let message =
+                    "VISCEREALITY_OPERATOR_GUI_AUTO_LSL_BLOCK must be 1, 2, or 3.".to_string();
+                self.write_lsl_report_if_requested(&message);
+                self.set_status(cx, "LSL signal error", &message);
+                self.set_last_response(cx, &message);
+                return;
+            }
+        };
+        self.send_lsl_block_request(cx, block_number);
     }
 
     fn send_dismiss_request(&mut self, cx: &mut Cx) {
@@ -1515,6 +1620,18 @@ impl MatchEvent for App {
             self.send_block_request(cx, &BLOCK3);
         }
 
+        if self.ui.button(cx, ids!(lsl_block1_button)).clicked(actions) {
+            self.send_lsl_block_request(cx, 1);
+        }
+
+        if self.ui.button(cx, ids!(lsl_block2_button)).clicked(actions) {
+            self.send_lsl_block_request(cx, 2);
+        }
+
+        if self.ui.button(cx, ids!(lsl_block3_button)).clicked(actions) {
+            self.send_lsl_block_request(cx, 3);
+        }
+
         if self
             .ui
             .button(cx, ids!(runtime_preflight_button))
@@ -1635,6 +1752,7 @@ impl AppMain for App {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event) {
         self.match_event(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
+        self.maybe_auto_send_lsl_block(cx);
     }
 }
 

@@ -1,6 +1,7 @@
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::PathBuf;
+use std::process::Command;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -8,8 +9,18 @@ use serde::Serialize;
 
 pub const DEFAULT_RUNTIME_STATE_STREAM_NAME: &str = "peripersonal_runtime_state";
 pub const DEFAULT_RUNTIME_STATE_STREAM_TYPE: &str = "peripersonal.runtime.state";
+pub const DEFAULT_OPERATOR_COMMAND_STREAM_NAME: &str = "peripersonal_operator_command";
+pub const DEFAULT_OPERATOR_COMMAND_STREAM_TYPE: &str = "peripersonal.operator.command";
+pub const DEFAULT_OPERATOR_SIGNAL_STREAM_NAME: &str = "peripersonal_operator_signal";
+pub const DEFAULT_OPERATOR_SIGNAL_STREAM_TYPE: &str = "peripersonal.operator.signal";
+pub const DEFAULT_OPERATOR_COMMAND_ACK_STREAM_NAME: &str = "peripersonal_operator_command_ack";
+pub const DEFAULT_OPERATOR_COMMAND_ACK_STREAM_TYPE: &str = "peripersonal.operator.command.ack";
 pub const RUNTIME_STATE_LSL_PROTOCOL_VERSION: &str =
     "quest.questionnaire.operator.peripersonal_runtime_state_lsl_recording.v1";
+pub const OPERATOR_COMMAND_LSL_PROTOCOL_VERSION: &str =
+    "quest.questionnaire.operator.peripersonal_operator_command_lsl.v1";
+pub const OPERATOR_SIGNAL_LSL_PROTOCOL_VERSION: &str =
+    "quest.questionnaire.operator.peripersonal_operator_signal_lsl.v1";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RuntimeStateLslRecordingOptions {
@@ -56,6 +67,98 @@ pub struct RuntimeStateLslRecordingReport {
     pub lsl_library_detail: String,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OperatorCommandLslSendOptions {
+    pub command_json: String,
+    pub stream_name: String,
+    pub stream_type: String,
+    pub source_id: String,
+    pub warmup_ms: u64,
+    pub post_push_hold_ms: u64,
+    pub wait_for_ack: bool,
+    pub ack_stream_name: String,
+    pub ack_stream_type: String,
+    pub ack_timeout_ms: u64,
+}
+
+impl Default for OperatorCommandLslSendOptions {
+    fn default() -> Self {
+        Self {
+            command_json: String::new(),
+            stream_name: DEFAULT_OPERATOR_COMMAND_STREAM_NAME.to_string(),
+            stream_type: DEFAULT_OPERATOR_COMMAND_STREAM_TYPE.to_string(),
+            source_id: "windows.operator.peripersonal.command".to_string(),
+            warmup_ms: 2_500,
+            post_push_hold_ms: 500,
+            wait_for_ack: false,
+            ack_stream_name: DEFAULT_OPERATOR_COMMAND_ACK_STREAM_NAME.to_string(),
+            ack_stream_type: DEFAULT_OPERATOR_COMMAND_ACK_STREAM_TYPE.to_string(),
+            ack_timeout_ms: 5_000,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct OperatorCommandLslSendReport {
+    pub protocol_version: String,
+    pub accepted: bool,
+    pub stream_name: String,
+    pub stream_type: String,
+    pub source_id: String,
+    pub pushed_unix_ms: u128,
+    pub completed_unix_ms: u128,
+    pub ack_stream_name: String,
+    pub ack_stream_type: String,
+    pub ack_received: bool,
+    pub ack_payload: Option<String>,
+    pub lsl_library_detail: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct OperatorSignalLslSendOptions {
+    pub values: Vec<f32>,
+    pub stream_name: String,
+    pub stream_type: String,
+    pub source_id: String,
+    pub python_helper: bool,
+    pub warmup_ms: u64,
+    pub repeat_count: u32,
+    pub repeat_interval_ms: u64,
+    pub post_push_hold_ms: u64,
+}
+
+impl Default for OperatorSignalLslSendOptions {
+    fn default() -> Self {
+        Self {
+            values: Vec::new(),
+            stream_name: DEFAULT_OPERATOR_SIGNAL_STREAM_NAME.to_string(),
+            stream_type: DEFAULT_OPERATOR_SIGNAL_STREAM_TYPE.to_string(),
+            source_id: "windows.operator.peripersonal.signal".to_string(),
+            python_helper: false,
+            warmup_ms: 3_000,
+            repeat_count: 30,
+            repeat_interval_ms: 250,
+            post_push_hold_ms: 2_000,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct OperatorSignalLslSendReport {
+    pub protocol_version: String,
+    pub accepted: bool,
+    pub sender_kind: String,
+    pub stream_name: String,
+    pub stream_type: String,
+    pub source_id: String,
+    pub channel_count: usize,
+    pub sample_count: u32,
+    pub pushed_unix_ms: u128,
+    pub completed_unix_ms: u128,
+    pub values: Vec<f32>,
+    pub lsl_library_detail: String,
+}
+
 #[derive(Clone, Debug)]
 pub struct RuntimeStateLslSample {
     pub source_lsl_timestamp_seconds: f64,
@@ -79,12 +182,42 @@ pub fn record_runtime_state_lsl_csv(
     record_runtime_state_lsl_csv_impl(options, runtime_columns)
 }
 
+pub fn send_operator_command_lsl_json(
+    options: &OperatorCommandLslSendOptions,
+) -> Result<OperatorCommandLslSendReport, String> {
+    send_operator_command_lsl_json_impl(options)
+}
+
+pub fn send_operator_signal_lsl_floats(
+    options: &OperatorSignalLslSendOptions,
+) -> Result<OperatorSignalLslSendReport, String> {
+    if options.python_helper {
+        return send_operator_signal_lsl_floats_with_python(options);
+    }
+
+    send_operator_signal_lsl_floats_impl(options)
+}
+
 #[cfg(windows)]
 fn record_runtime_state_lsl_csv_impl(
     options: &RuntimeStateLslRecordingOptions,
     runtime_columns: &[&str],
 ) -> Result<RuntimeStateLslRecordingReport, String> {
     windows_lsl::record_runtime_state_lsl_csv(options, runtime_columns)
+}
+
+#[cfg(windows)]
+fn send_operator_command_lsl_json_impl(
+    options: &OperatorCommandLslSendOptions,
+) -> Result<OperatorCommandLslSendReport, String> {
+    windows_lsl::send_operator_command_lsl_json(options)
+}
+
+#[cfg(windows)]
+fn send_operator_signal_lsl_floats_impl(
+    options: &OperatorSignalLslSendOptions,
+) -> Result<OperatorSignalLslSendReport, String> {
+    windows_lsl::send_operator_signal_lsl_floats(options)
 }
 
 #[cfg(not(windows))]
@@ -94,6 +227,26 @@ fn record_runtime_state_lsl_csv_impl(
 ) -> Result<RuntimeStateLslRecordingReport, String> {
     Err(
         "LSL runtime recording is currently implemented for Windows operator builds only."
+            .to_string(),
+    )
+}
+
+#[cfg(not(windows))]
+fn send_operator_command_lsl_json_impl(
+    _options: &OperatorCommandLslSendOptions,
+) -> Result<OperatorCommandLslSendReport, String> {
+    Err(
+        "LSL operator command sending is currently implemented for Windows operator builds only."
+            .to_string(),
+    )
+}
+
+#[cfg(not(windows))]
+fn send_operator_signal_lsl_floats_impl(
+    _options: &OperatorSignalLslSendOptions,
+) -> Result<OperatorSignalLslSendReport, String> {
+    Err(
+        "LSL operator signal sending is currently implemented for Windows operator builds only."
             .to_string(),
     )
 }
@@ -187,6 +340,144 @@ fn unix_ms() -> u128 {
         .unwrap_or_default()
 }
 
+fn normalize_text(value: &str, fallback: &str) -> String {
+    if value.trim().is_empty() {
+        fallback.to_string()
+    } else {
+        value.trim().to_string()
+    }
+}
+
+fn send_operator_signal_lsl_floats_with_python(
+    options: &OperatorSignalLslSendOptions,
+) -> Result<OperatorSignalLslSendReport, String> {
+    if options.values.is_empty() {
+        return Err("LSL operator signal requires at least one float value.".to_string());
+    }
+
+    let stream_name = normalize_text(&options.stream_name, DEFAULT_OPERATOR_SIGNAL_STREAM_NAME);
+    let stream_type = normalize_text(&options.stream_type, DEFAULT_OPERATOR_SIGNAL_STREAM_TYPE);
+    let source_id = normalize_text(&options.source_id, "windows.operator.peripersonal.signal");
+    let python = std::env::var("VISCEREALITY_LSL_PYTHON").unwrap_or_else(|_| "python".to_string());
+    let values_json = serde_json::to_string(&options.values).map_err(|err| err.to_string())?;
+    let repeat_count = options.repeat_count.max(1);
+    let code = r#"
+import json
+import sys
+import time
+
+import pylsl
+
+stream_name = sys.argv[1]
+stream_type = sys.argv[2]
+source_id = sys.argv[3]
+values = [float(value) for value in json.loads(sys.argv[4])]
+warmup_ms = max(0, int(sys.argv[5]))
+repeat_count = max(1, int(sys.argv[6]))
+repeat_interval_ms = max(0, int(sys.argv[7]))
+post_push_hold_ms = max(0, int(sys.argv[8]))
+
+info = pylsl.StreamInfo(
+    stream_name,
+    stream_type,
+    len(values),
+    pylsl.IRREGULAR_RATE,
+    "float32",
+    source_id,
+)
+outlet = pylsl.StreamOutlet(info)
+time.sleep(warmup_ms / 1000.0)
+
+pushed_unix_ms = 0
+for index in range(repeat_count):
+    outlet.push_sample(values)
+    if pushed_unix_ms == 0:
+        pushed_unix_ms = int(time.time() * 1000)
+    if index + 1 < repeat_count:
+        time.sleep(repeat_interval_ms / 1000.0)
+
+time.sleep(post_push_hold_ms / 1000.0)
+try:
+    library_info = pylsl.library_info()
+except Exception as exc:
+    library_info = "pylsl library_info unavailable: " + type(exc).__name__
+
+print(json.dumps({
+    "pushed_unix_ms": pushed_unix_ms,
+    "completed_unix_ms": int(time.time() * 1000),
+    "library_info": library_info,
+}), flush=True)
+"#;
+
+    let output = Command::new(&python)
+        .arg("-c")
+        .arg(code)
+        .arg(&stream_name)
+        .arg(&stream_type)
+        .arg(&source_id)
+        .arg(&values_json)
+        .arg(options.warmup_ms.to_string())
+        .arg(repeat_count.to_string())
+        .arg(options.repeat_interval_ms.to_string())
+        .arg(options.post_push_hold_ms.to_string())
+        .output()
+        .map_err(|err| format!("Could not start Python pylsl helper {python}: {err}"))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !output.status.success() {
+        return Err(format!(
+            "Python pylsl helper failed with exit code {:?}. stdout: {} stderr: {}",
+            output.status.code(),
+            stdout.trim(),
+            stderr.trim()
+        ));
+    }
+
+    let json_line = stdout
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .ok_or_else(|| {
+            format!(
+                "Python pylsl helper did not print a JSON report. stdout: {} stderr: {}",
+                stdout.trim(),
+                stderr.trim()
+            )
+        })?;
+    let value = serde_json::from_str::<serde_json::Value>(json_line.trim())
+        .map_err(|err| format!("Could not parse Python pylsl helper report: {err}"))?;
+    let pushed_unix_ms = value
+        .get("pushed_unix_ms")
+        .and_then(serde_json::Value::as_u64)
+        .map(u128::from)
+        .unwrap_or_else(unix_ms);
+    let completed_unix_ms = value
+        .get("completed_unix_ms")
+        .and_then(serde_json::Value::as_u64)
+        .map(u128::from)
+        .unwrap_or_else(unix_ms);
+    let library_info = value
+        .get("library_info")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or("pylsl library_info unavailable");
+
+    Ok(OperatorSignalLslSendReport {
+        protocol_version: OPERATOR_SIGNAL_LSL_PROTOCOL_VERSION.to_string(),
+        accepted: true,
+        sender_kind: "python_pylsl_helper".to_string(),
+        stream_name,
+        stream_type,
+        source_id,
+        channel_count: options.values.len(),
+        sample_count: repeat_count,
+        pushed_unix_ms,
+        completed_unix_ms,
+        values: options.values.clone(),
+        lsl_library_detail: format!("{library_info} via {python}. stderr: {}", stderr.trim()),
+    })
+}
+
 #[cfg(windows)]
 mod windows_lsl {
     use super::*;
@@ -200,6 +491,7 @@ mod windows_lsl {
     use std::slice;
 
     const RESOLVE_BUFFER_SIZE: usize = 16;
+    const LSL_FLOAT_CHANNEL_FORMAT: i32 = 1;
     const LSL_STRING_CHANNEL_FORMAT: i32 = 3;
     const LSL_PROCESSING_ALL: u32 = 1 | 2 | 4 | 8;
 
@@ -217,6 +509,18 @@ mod windows_lsl {
     type LslGetInt = unsafe extern "C" fn(*mut c_void) -> c_int;
     type LslCreateInlet = unsafe extern "C" fn(*mut c_void, c_int, c_int, c_int) -> *mut c_void;
     type LslDestroyInlet = unsafe extern "C" fn(*mut c_void);
+    type LslCreateStreamInfo = unsafe extern "C" fn(
+        *const c_char,
+        *const c_char,
+        c_int,
+        c_double,
+        c_int,
+        *const c_char,
+    ) -> *mut c_void;
+    type LslCreateOutlet = unsafe extern "C" fn(*mut c_void, c_int, c_int) -> *mut c_void;
+    type LslDestroyOutlet = unsafe extern "C" fn(*mut c_void);
+    type LslPushFloatSample = unsafe extern "C" fn(*mut c_void, *const f32) -> c_int;
+    type LslPushStringSample = unsafe extern "C" fn(*mut c_void, *const *const c_char) -> c_int;
     type LslOpenStream = unsafe extern "C" fn(*mut c_void, c_double, *mut c_int);
     type LslSetPostProcessing = unsafe extern "C" fn(*mut c_void, c_uint) -> c_int;
     type LslPullStringSample = unsafe extern "C" fn(
@@ -253,6 +557,11 @@ mod windows_lsl {
         get_channel_format: LslGetInt,
         create_inlet: LslCreateInlet,
         destroy_inlet: LslDestroyInlet,
+        create_streaminfo: LslCreateStreamInfo,
+        create_outlet: LslCreateOutlet,
+        destroy_outlet: LslDestroyOutlet,
+        push_float_sample: LslPushFloatSample,
+        push_string_sample: LslPushStringSample,
         open_stream: LslOpenStream,
         set_postprocessing: LslSetPostProcessing,
         pull_string_sample: LslPullStringSample,
@@ -273,6 +582,38 @@ mod windows_lsl {
             if !self.handle.is_null() {
                 unsafe {
                     (self.library.destroy_inlet)(self.handle);
+                }
+                self.handle = ptr::null_mut();
+            }
+        }
+    }
+
+    struct LslOwnedStreamInfo<'a> {
+        library: &'a LslLibrary,
+        handle: *mut c_void,
+    }
+
+    impl Drop for LslOwnedStreamInfo<'_> {
+        fn drop(&mut self) {
+            if !self.handle.is_null() {
+                unsafe {
+                    (self.library.destroy_streaminfo)(self.handle);
+                }
+                self.handle = ptr::null_mut();
+            }
+        }
+    }
+
+    struct LslOutlet<'a> {
+        library: &'a LslLibrary,
+        handle: *mut c_void,
+    }
+
+    impl Drop for LslOutlet<'_> {
+        fn drop(&mut self) {
+            if !self.handle.is_null() {
+                unsafe {
+                    (self.library.destroy_outlet)(self.handle);
                 }
                 self.handle = ptr::null_mut();
             }
@@ -364,6 +705,282 @@ mod windows_lsl {
             ended_unix_ms,
             lsl_library_detail: library.detail_with_info(),
         })
+    }
+
+    pub(super) fn send_operator_command_lsl_json(
+        options: &OperatorCommandLslSendOptions,
+    ) -> Result<OperatorCommandLslSendReport, String> {
+        if options.command_json.trim().is_empty() {
+            return Err("LSL operator command requires non-empty command JSON.".to_string());
+        }
+
+        let library = LslLibrary::load()?;
+        let mut ack_inlet = if options.wait_for_ack {
+            Some(resolve_ack_stream(&library, options)?)
+        } else {
+            None
+        };
+
+        let stream_name = non_empty(&options.stream_name, DEFAULT_OPERATOR_COMMAND_STREAM_NAME);
+        let stream_type = non_empty(&options.stream_type, DEFAULT_OPERATOR_COMMAND_STREAM_TYPE);
+        let source_id = non_empty(&options.source_id, "windows.operator.peripersonal.command");
+        let stream_info =
+            create_string_stream_info(&library, &stream_name, &stream_type, &source_id)?;
+        let outlet_handle = unsafe { (library.create_outlet)(stream_info.handle, 1, 60) };
+        if outlet_handle.is_null() {
+            return Err(format!(
+                "Could not create LSL operator command outlet. {}",
+                library.last_error()
+            )
+            .trim()
+            .to_string());
+        }
+        let outlet = LslOutlet {
+            library: &library,
+            handle: outlet_handle,
+        };
+
+        thread::sleep(Duration::from_millis(options.warmup_ms));
+        let command = CString::new(options.command_json.as_str())
+            .map_err(|_| "LSL operator command JSON must not contain NUL bytes.".to_string())?;
+        let sample = [command.as_ptr()];
+        let error_code = unsafe { (library.push_string_sample)(outlet.handle, sample.as_ptr()) };
+        if error_code != 0 {
+            return Err(library.error_message("Could not push LSL operator command", error_code));
+        }
+        let pushed_unix_ms = unix_ms();
+
+        let mut ack_payload = None;
+        if let Some(inlet) = ack_inlet.as_mut() {
+            ack_payload = wait_for_ack(inlet, options.ack_timeout_ms)?;
+            if ack_payload.is_none() {
+                return Err(format!(
+                    "No LSL operator command ack arrived from {} / {} before timeout.",
+                    options.ack_stream_name, options.ack_stream_type
+                ));
+            }
+        } else {
+            thread::sleep(Duration::from_millis(options.post_push_hold_ms));
+        }
+
+        let completed_unix_ms = unix_ms();
+        Ok(OperatorCommandLslSendReport {
+            protocol_version: OPERATOR_COMMAND_LSL_PROTOCOL_VERSION.to_string(),
+            accepted: ack_payload
+                .as_deref()
+                .map(ack_payload_accepted)
+                .unwrap_or(true),
+            stream_name,
+            stream_type,
+            source_id,
+            pushed_unix_ms,
+            completed_unix_ms,
+            ack_stream_name: non_empty(
+                &options.ack_stream_name,
+                DEFAULT_OPERATOR_COMMAND_ACK_STREAM_NAME,
+            ),
+            ack_stream_type: non_empty(
+                &options.ack_stream_type,
+                DEFAULT_OPERATOR_COMMAND_ACK_STREAM_TYPE,
+            ),
+            ack_received: ack_payload.is_some(),
+            ack_payload,
+            lsl_library_detail: library.detail_with_info(),
+        })
+    }
+
+    pub(super) fn send_operator_signal_lsl_floats(
+        options: &OperatorSignalLslSendOptions,
+    ) -> Result<OperatorSignalLslSendReport, String> {
+        if options.values.is_empty() {
+            return Err("LSL operator signal requires at least one float value.".to_string());
+        }
+
+        let library = LslLibrary::load()?;
+        let stream_name = non_empty(&options.stream_name, DEFAULT_OPERATOR_SIGNAL_STREAM_NAME);
+        let stream_type = non_empty(&options.stream_type, DEFAULT_OPERATOR_SIGNAL_STREAM_TYPE);
+        let source_id = non_empty(&options.source_id, "windows.operator.peripersonal.signal");
+        let stream_info = create_float_stream_info(
+            &library,
+            &stream_name,
+            &stream_type,
+            &source_id,
+            options.values.len(),
+        )?;
+        let outlet_handle = unsafe { (library.create_outlet)(stream_info.handle, 1, 60) };
+        if outlet_handle.is_null() {
+            return Err(format!(
+                "Could not create LSL operator signal outlet. {}",
+                library.last_error()
+            )
+            .trim()
+            .to_string());
+        }
+        let outlet = LslOutlet {
+            library: &library,
+            handle: outlet_handle,
+        };
+
+        thread::sleep(Duration::from_millis(options.warmup_ms));
+        let repeat_count = options.repeat_count.max(1);
+        let mut pushed_unix_ms = 0;
+        for index in 0..repeat_count {
+            let error_code =
+                unsafe { (library.push_float_sample)(outlet.handle, options.values.as_ptr()) };
+            if error_code != 0 {
+                return Err(library.error_message("Could not push LSL operator signal", error_code));
+            }
+            if pushed_unix_ms == 0 {
+                pushed_unix_ms = unix_ms();
+            }
+            if index + 1 < repeat_count {
+                thread::sleep(Duration::from_millis(options.repeat_interval_ms));
+            }
+        }
+        thread::sleep(Duration::from_millis(options.post_push_hold_ms));
+        let completed_unix_ms = unix_ms();
+
+        Ok(OperatorSignalLslSendReport {
+            protocol_version: OPERATOR_SIGNAL_LSL_PROTOCOL_VERSION.to_string(),
+            accepted: true,
+            sender_kind: "native_liblsl".to_string(),
+            stream_name,
+            stream_type,
+            source_id,
+            channel_count: options.values.len(),
+            sample_count: repeat_count,
+            pushed_unix_ms,
+            completed_unix_ms,
+            values: options.values.clone(),
+            lsl_library_detail: library.detail_with_info(),
+        })
+    }
+
+    fn resolve_ack_stream<'a>(
+        library: &'a LslLibrary,
+        options: &OperatorCommandLslSendOptions,
+    ) -> Result<LslInlet<'a>, String> {
+        let recording_options = RuntimeStateLslRecordingOptions {
+            out: PathBuf::new(),
+            stream_name: non_empty(
+                &options.ack_stream_name,
+                DEFAULT_OPERATOR_COMMAND_ACK_STREAM_NAME,
+            ),
+            stream_type: non_empty(
+                &options.ack_stream_type,
+                DEFAULT_OPERATOR_COMMAND_ACK_STREAM_TYPE,
+            ),
+            source_id_prefix: None,
+            resolve_timeout_ms: options.ack_timeout_ms,
+            pull_timeout_ms: 100,
+            idle_timeout_ms: options.ack_timeout_ms,
+            duration_ms: None,
+            max_samples: Some(1),
+        };
+        let inlet = resolve_string_stream(library, &recording_options)?;
+        if inlet.stream.channel_count != 1 {
+            return Err(format!(
+                "Resolved LSL operator command ack stream has {} channels; expected 1.",
+                inlet.stream.channel_count
+            ));
+        }
+        Ok(inlet)
+    }
+
+    fn create_string_stream_info<'a>(
+        library: &'a LslLibrary,
+        name: &str,
+        stream_type: &str,
+        source_id: &str,
+    ) -> Result<LslOwnedStreamInfo<'a>, String> {
+        let name = CString::new(name).map_err(|err| err.to_string())?;
+        let stream_type = CString::new(stream_type).map_err(|err| err.to_string())?;
+        let source_id = CString::new(source_id).map_err(|err| err.to_string())?;
+        let handle = unsafe {
+            (library.create_streaminfo)(
+                name.as_ptr(),
+                stream_type.as_ptr(),
+                1,
+                0.0,
+                LSL_STRING_CHANNEL_FORMAT,
+                source_id.as_ptr(),
+            )
+        };
+        if handle.is_null() {
+            return Err(format!(
+                "Could not create LSL operator command stream info. {}",
+                library.last_error()
+            )
+            .trim()
+            .to_string());
+        }
+        Ok(LslOwnedStreamInfo { library, handle })
+    }
+
+    fn create_float_stream_info<'a>(
+        library: &'a LslLibrary,
+        name: &str,
+        stream_type: &str,
+        source_id: &str,
+        channel_count: usize,
+    ) -> Result<LslOwnedStreamInfo<'a>, String> {
+        let name = CString::new(name).map_err(|err| err.to_string())?;
+        let stream_type = CString::new(stream_type).map_err(|err| err.to_string())?;
+        let source_id = CString::new(source_id).map_err(|err| err.to_string())?;
+        let handle = unsafe {
+            (library.create_streaminfo)(
+                name.as_ptr(),
+                stream_type.as_ptr(),
+                channel_count as i32,
+                0.0,
+                LSL_FLOAT_CHANNEL_FORMAT,
+                source_id.as_ptr(),
+            )
+        };
+        if handle.is_null() {
+            return Err(format!(
+                "Could not create LSL operator signal stream info. {}",
+                library.last_error()
+            )
+            .trim()
+            .to_string());
+        }
+        Ok(LslOwnedStreamInfo { library, handle })
+    }
+
+    fn wait_for_ack(
+        inlet: &mut LslInlet<'_>,
+        ack_timeout_ms: u64,
+    ) -> Result<Option<String>, String> {
+        let deadline = Instant::now() + Duration::from_millis(ack_timeout_ms);
+        loop {
+            match pull_string_sample(inlet, 100)? {
+                Some(sample) => {
+                    return Ok(sample.values.into_iter().next());
+                }
+                None => {
+                    if Instant::now() >= deadline {
+                        return Ok(None);
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+            }
+        }
+    }
+
+    fn ack_payload_accepted(payload: &str) -> bool {
+        serde_json::from_str::<serde_json::Value>(payload)
+            .ok()
+            .and_then(|value| value.get("accepted").and_then(serde_json::Value::as_bool))
+            .unwrap_or(false)
+    }
+
+    fn non_empty(value: &str, fallback: &str) -> String {
+        if value.trim().is_empty() {
+            fallback.to_string()
+        } else {
+            value.trim().to_string()
+        }
     }
 
     fn resolve_string_stream<'a>(
@@ -640,6 +1257,11 @@ mod windows_lsl {
                 get_channel_format: load_symbol(handle, "lsl_get_channel_format")?,
                 create_inlet: load_symbol(handle, "lsl_create_inlet")?,
                 destroy_inlet: load_symbol(handle, "lsl_destroy_inlet")?,
+                create_streaminfo: load_symbol(handle, "lsl_create_streaminfo")?,
+                create_outlet: load_symbol(handle, "lsl_create_outlet")?,
+                destroy_outlet: load_symbol(handle, "lsl_destroy_outlet")?,
+                push_float_sample: load_symbol(handle, "lsl_push_sample_f")?,
+                push_string_sample: load_symbol(handle, "lsl_push_sample_str")?,
                 open_stream: load_symbol(handle, "lsl_open_stream")?,
                 set_postprocessing: load_symbol(handle, "lsl_set_postprocessing")?,
                 pull_string_sample: load_symbol(handle, "lsl_pull_sample_buf")?,

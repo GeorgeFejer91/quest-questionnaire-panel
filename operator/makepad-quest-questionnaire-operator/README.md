@@ -201,9 +201,26 @@ writes a CSV with operator receive time, operator LSL local clock, source LSL
 sample timestamp, stream identity, and the exact Unity runtime-state columns.
 The command dynamically loads `lsl.dll`; set `VISCEREALITY_LSL_DLL` or place
 `lsl.dll` beside the executable if it is not in a standard
-`%USERPROFILE%\Tools\liblsl\<version>\bin` location. This is readout only. HTTP
-still carries low-rate start/stop/questionnaire commands, and ADB pull remains
-the authoritative Quest-local session bundle export.
+`%USERPROFILE%\Tools\liblsl\<version>\bin` location. Runtime-state LSL is
+readout only. HTTP still carries start/stop/status/pull commands, and ADB pull
+remains the authoritative Quest-local session bundle export.
+
+For low-rate questionnaire block opening through LSL, use the operator signal
+stream while an HTTP-started Unity session is active:
+
+```powershell
+cargo run --manifest-path operator\makepad-quest-questionnaire-operator\Cargo.toml --bin quest-questionnaire-operator-cli -- open-block-lsl --block 2 --session-id <session-id> --participant-ref <participant-ref> --runtime-package <unity-package> --condition-id <condition-id> --python-helper --json
+```
+
+The signal contract is `peripersonal_operator_signal /
+peripersonal.operator.signal`, four float32 channels
+`[action_code, block_number, sequence, reserved]`, with action code `1` meaning
+open block 1/2/3. The CLI repeats the same sequence for delivery reliability;
+Unity de-duplicates identical action/block/sequence samples. On locked-down
+Windows machines, the native Rust `lsl.dll` outlet may be visible locally but
+blocked from Quest by Windows Firewall. `--python-helper` uses installed
+`python` + `pylsl` as the LSL sender and reports
+`sender_kind: python_pylsl_helper` in JSON output.
 
 The verifier also compares `session_snapshot.json` counters against the pulled
 file contents, including events, signals, breathing rows, runtime-state rows,
