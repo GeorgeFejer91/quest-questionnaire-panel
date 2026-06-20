@@ -35,6 +35,12 @@ script_mod! {
     let SectionTitle = OperatorSectionTitle{}
     let StatusValue = OperatorStatusValue{}
     let MonoValue = OperatorMonoValue{}
+    let AppLogo = Image{
+        width: 36
+        height: 36
+        src: crate_resource("self:resources/vr-headset-256.png")
+        fit: ImageFit.Stretch
+    }
 
     let app = startup() do #(App::script_component(vm)){
         ui: Root{
@@ -56,6 +62,8 @@ script_mod! {
                             spacing: 14.0
                             padding: Inset{top: 8.0 right: 14.0 bottom: 8.0 left: 14.0}
                             draw_bg.color: #xffffff
+
+                            AppLogo{}
 
                             View{
                                 width: Fill
