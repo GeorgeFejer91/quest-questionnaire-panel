@@ -1,0 +1,55 @@
+{
+  "panel_id": "emotion_induction_sam_preview",
+  "schema_version": 1,
+  "quest_panel_frame": {
+    "width_dp": 1080,
+    "height_dp": 720
+  },
+  "native_contract_authority": {
+    "protocol_version": "quest.questionnaire.v1",
+    "schema_id": "emotion-induction-sam-v1",
+    "open_stage": "emotion_assessment",
+    "screen_sequence": [
+      "emotion_assessment"
+    ],
+    "result_owner": "caller-owned content URI"
+  },
+  "counterbalance": {
+    "order_id": "order_04",
+    "condition_ids": [
+      "induction_d",
+      "induction_a",
+      "induction_c",
+      "induction_b"
+    ],
+    "editable_in_preview": true,
+    "editable_in_native_panel": false
+  },
+  "active_condition_position": 4,
+  "active_condition_id": "induction_b",
+  "responses_by_condition": [
+    {
+      "condition_position": 4,
+      "condition_id": "induction_b",
+      "assessment": {
+        "sam": {
+          "valence_raw_1_9": 1,
+          "arousal_raw_1_9": 9
+        },
+        "sliders": {
+          "valence_raw_0_100": 0,
+          "arousal_raw_0_100": 100
+        },
+        "ekman_rank_order": [
+          "sadness",
+          "disgust",
+          "anger",
+          "fear",
+          "surprise",
+          "happiness"
+        ],
+        "complete": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emotion SAM Panel Preview</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="workspace">
+    <section class="panel-frame" aria-label="Quest questionnaire panel preview">
+      <header class="panel-header">
+        <div>
+          <p class="eyebrow" id="conditionStatus">Condition 1 of 4</p>
+          <h1>Emotion assessment</h1>
+        </div>
+        <div class="stage-chip" id="conditionLabel">Induction A</div>
+      </header>
+
+      <section class="sam-section" aria-labelledby="samHeading">
+        <div class="section-title">
+          <h2 id="samHeading">Self-assessment manikin</h2>
+          <span id="samCompletion">2 required</span>
+        </div>
+        <div id="samRows" class="sam-rows"></div>
+      </section>
+
+      <section class="lower-grid">
+        <section class="slider-section" aria-labelledby="sliderHeading">
+          <div class="section-title">
+            <h2 id="sliderHeading">Continuous ratings</h2>
+            <span>0-100</span>
+          </div>
+          <div id="sliderRows" class="slider-rows"></div>
+        </section>
+
+        <section class="rank-section" aria-labelledby="rankHeading">
+          <div class="section-title">
+            <h2 id="rankHeading">Emotion rank order</h2>
+            <span id="rankStatus">6 ranked</span>
+          </div>
+          <ol id="rankList" class="rank-list"></ol>
+        </section>
+      </section>
+
+      <footer class="panel-footer">
+        <div>
+          <p class="footer-label">Current response</p>
+          <p id="validationSummary" class="footer-status">Complete</p>
+        </div>
+        <button id="completeCondition" class="primary-button" type="button">Mark condition complete</button>
+      </footer>
+    </section>
+
+    <aside class="inspector" aria-label="Preview state controls">
+      <h2>Preview controls</h2>
+      <label for="orderSelect">Counterbalance order</label>
+      <select id="orderSelect"></select>
+
+      <label>Active condition</label>
+      <div id="conditionButtons" class="condition-buttons"></div>
+
+      <div class="inspector-grid">
+        <button id="loadDefault" type="button">Default</button>
+        <button id="loadEdge" type="button">Edge case</button>
+      </div>
+
+      <button id="exportState" class="secondary-button" type="button">Export JSON</button>
+      <pre id="jsonOutput" class="json-output" aria-live="polite"></pre>
+    </aside>
+  </main>
+
+  <script src="panel-preview.js"></script>
+</body>
+</html>
