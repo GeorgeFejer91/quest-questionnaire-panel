@@ -1686,7 +1686,14 @@ function conditionBlockSequence() {
 
 function expandedPreviewSequence(order = activeOrder()) {
   return [
-    { stage: "onboarding", page_id: "onboarding" },
+    {
+      stage: "onboarding",
+      page_id: "onboarding",
+      assessment_block_id: null,
+      assessment_block_page: null,
+      assessment_block_page_count: null,
+      assessment_block_group: null
+    },
     ...order.condition_ids.flatMap((conditionId, index) => {
       const conditionPosition = index + 1;
       return conditionBlockSequence().map((pageId) => {
