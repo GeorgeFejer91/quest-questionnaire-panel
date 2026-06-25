@@ -6,7 +6,7 @@ script_mod! {
 
     mod.widgets.OperatorFieldLabel = Label{
         draw_text.color: #x4b5563
-        draw_text.text_style.font_size: 8.0
+        draw_text.text_style: theme.font_label{font_size: 8.0}
     }
 
     mod.widgets.OperatorCenteredField = TextInput{
@@ -18,7 +18,7 @@ script_mod! {
         text_placement: TextInputTextPlacement.InnerAlign
         draw_text +: {
             color: #x111827
-            text_style.font_size: 9.0
+            text_style: theme.font_regular{font_size: 9.0}
         }
         draw_bg +: {
             border_radius: 5.0
@@ -40,7 +40,7 @@ script_mod! {
             color: #xffffff
             color_hover: #xffffff
             color_down: #xffffff
-            text_style.font_size: 9.0
+            text_style: theme.font_bold{font_size: 9.0}
         }
         draw_bg +: {
             border_radius: 5.0
@@ -60,7 +60,7 @@ script_mod! {
             color: #x111827
             color_hover: #x111827
             color_down: #x111827
-            text_style.font_size: 9.0
+            text_style: theme.font_regular{font_size: 9.0}
         }
         draw_bg +: {
             border_radius: 5.0
@@ -88,18 +88,18 @@ script_mod! {
 
     mod.widgets.OperatorSectionTitle = Label{
         draw_text.color: #x111827
-        draw_text.text_style.font_size: 11.0
+        draw_text.text_style: theme.font_bold{font_size: 11.0}
     }
 
     mod.widgets.OperatorStatusValue = Label{
         width: Fill
         draw_text.color: #x374151
-        draw_text.text_style.font_size: 9.0
+        draw_text.text_style: theme.font_regular{font_size: 9.0}
     }
 
     mod.widgets.OperatorMonoValue = Label{
         width: Fill
         draw_text.color: #x374151
-        draw_text.text_style.font_size: 8.0
+        draw_text.text_style: theme.font_code{font_size: 8.0}
     }
 }

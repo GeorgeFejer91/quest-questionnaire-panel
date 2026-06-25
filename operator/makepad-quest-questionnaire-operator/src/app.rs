@@ -62,7 +62,7 @@ script_mod! {
                                 Label{
                                     text: "Quest Questionnaire Operator"
                                     draw_text.color: #x111827
-                                    draw_text.text_style.font_size: 10.0
+                                    draw_text.text_style: theme.font_bold{font_size: 10.0}
                                 }
                                 status_detail := StatusValue{
                                     text: "Waiting for bridge status."
@@ -73,7 +73,7 @@ script_mod! {
                                 width: 160
                                 text: "Idle"
                                 draw_text.color: #x0f766e
-                                draw_text.text_style.font_size: 10.0
+                                draw_text.text_style: theme.font_bold{font_size: 10.0}
                             }
                         }
 
@@ -130,6 +130,15 @@ script_mod! {
                                                 empty_text: "en"
                                             }
                                         }
+                                    }
+
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        language_english_button := SecondaryButton{text: "English"}
+                                        language_german_button := SecondaryButton{text: "German"}
                                     }
 
                                     View{
@@ -422,6 +431,24 @@ script_mod! {
 
                                 Panel{
                                     SectionTitle{text: "Questionnaire"}
+                                    FieldLabel{text: "Condition"}
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        condition_left_visible_button := SecondaryButton{text: "Left visible"}
+                                        condition_right_visible_button := SecondaryButton{text: "Right visible"}
+                                    }
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        condition_left_anchor_button := SecondaryButton{text: "Left anchor"}
+                                        condition_right_anchor_button := SecondaryButton{text: "Right anchor"}
+                                    }
+                                    FieldLabel{text: "Blocks"}
                                     View{
                                         width: Fill
                                         height: Fit
@@ -439,6 +466,47 @@ script_mod! {
                                             width: 260
                                             text: "Open Block 3"
                                         }
+                                    }
+                                }
+
+                                Panel{
+                                    SectionTitle{text: "Run Controls"}
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        quick_devices_button := SecondaryButton{text: "Devices"}
+                                        quick_status_button := SecondaryButton{text: "Status"}
+                                        quick_forward_button := PrimaryButton{text: "Forward"}
+                                    }
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        quick_verify_apk_button := SecondaryButton{text: "Verify APK"}
+                                        quick_install_apk_button := SecondaryButton{text: "Install APK"}
+                                        quick_launch_button := SecondaryButton{text: "Launch"}
+                                    }
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        quick_preflight_button := SecondaryButton{text: "Preflight"}
+                                        quick_start_button := PrimaryButton{text: "Start"}
+                                        quick_open_q_button := PrimaryButton{text: "Open Q"}
+                                    }
+                                    View{
+                                        width: Fill
+                                        height: Fit
+                                        flow: Right
+                                        spacing: 8.0
+                                        quick_mark_button := SecondaryButton{text: "Mark"}
+                                        quick_stop_button := SecondaryButton{text: "Stop"}
+                                        quick_pull_button := SecondaryButton{text: "Pull"}
+                                        quick_pull_files_button := SecondaryButton{text: "Pull Files"}
                                     }
                                 }
 
@@ -507,6 +575,67 @@ struct RuntimePreflightApproval {
     source_scene_path: String,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct ExperimentProfileSpec {
+    stem: &'static str,
+    label: &'static str,
+    apk_path: &'static str,
+    apk_sha256: &'static str,
+    apk_report: &'static str,
+    pull_out: &'static str,
+    package: &'static str,
+    condition_id: &'static str,
+    build_tag: &'static str,
+}
+
+const LEFT_VISIBLE_PROFILE: ExperimentProfileSpec = ExperimentProfileSpec {
+    stem: "peri-personal-left-visible",
+    label: "Left visible",
+    apk_path: "apks\\unity\\viscereality-peri-personal-left-visible.apk",
+    apk_sha256: "efd687e99ed1f79718cbdb6a61af180b902df66a98bcd65f7f85201b48bb051a",
+    apk_report: "artifacts\\target-apk-verification\\peri-personal-left-visible.json",
+    pull_out: "artifacts\\device-session-pull\\peri-personal-left-visible",
+    package: "com.Viscereality.ViscerealityPeriPersonalLeftVisible",
+    condition_id: "peri-personal-left-visible",
+    build_tag: "apk/2026-06-19/viscereality-peri-personal-left-visible",
+};
+
+const RIGHT_VISIBLE_PROFILE: ExperimentProfileSpec = ExperimentProfileSpec {
+    stem: "peri-personal-right-visible",
+    label: "Right visible",
+    apk_path: "apks\\unity\\viscereality-peri-personal-right-visible.apk",
+    apk_sha256: "93fa69ca0d997a07643d562b3383845e7291ffcc1a0bf3a6a11c1a0e63d79bb1",
+    apk_report: "artifacts\\target-apk-verification\\peri-personal-right-visible.json",
+    pull_out: "artifacts\\device-session-pull\\peri-personal-right-visible",
+    package: "com.Viscereality.ViscerealityPeriPersonalRightVisible",
+    condition_id: "peri-personal-right-visible",
+    build_tag: "apk/2026-06-19/viscereality-peri-personal-right-visible",
+};
+
+const LEFT_ANCHOR_PROFILE: ExperimentProfileSpec = ExperimentProfileSpec {
+    stem: "peri-personal-left-anchor-only",
+    label: "Left anchor",
+    apk_path: "apks\\unity\\viscereality-peri-personal-left-anchor-only.apk",
+    apk_sha256: "043ed48a466ded91833388649b8cd4d49eaeb94055ecf425b7e04bf9764134de",
+    apk_report: "artifacts\\target-apk-verification\\peri-personal-left-anchor-only.json",
+    pull_out: "artifacts\\device-session-pull\\peri-personal-left-anchor-only",
+    package: "com.Viscereality.ViscerealityPeriPersonalLeftAnchorOnly",
+    condition_id: "peri-personal-left-anchor-only",
+    build_tag: "apk/2026-06-19/viscereality-peri-personal-left-anchor-only",
+};
+
+const RIGHT_ANCHOR_PROFILE: ExperimentProfileSpec = ExperimentProfileSpec {
+    stem: "peri-personal-right-anchor-only",
+    label: "Right anchor",
+    apk_path: "apks\\unity\\viscereality-peri-personal-right-anchor-only.apk",
+    apk_sha256: "e1960426cff65d701f5b1a46efb85220c4719fde4c0506d07c9878c6fa734648",
+    apk_report: "artifacts\\target-apk-verification\\peri-personal-right-anchor-only.json",
+    pull_out: "artifacts\\device-session-pull\\peri-personal-right-anchor-only",
+    package: "com.Viscereality.ViscerealityPeriPersonalRightAnchorOnly",
+    condition_id: "peri-personal-right-anchor-only",
+    build_tag: "apk/2026-06-19/viscereality-peri-personal-right-anchor-only",
+};
+
 #[derive(Script, ScriptHook)]
 pub struct App {
     #[live]
@@ -539,6 +668,211 @@ impl App {
         self.ui
             .label(cx, ids!(last_response_value))
             .set_text(cx, text);
+    }
+
+    fn set_operator_language(&self, cx: &mut Cx, code: &str, label: &str) {
+        cx.set_key_focus(Area::Empty);
+        self.set_field_text(cx, ids!(language_input), code);
+        self.set_status(cx, "Language selected", label);
+        self.set_last_response(cx, &format!("Operator language set to {code} ({label})."));
+    }
+
+    fn select_experiment_profile(&self, cx: &mut Cx, spec: ExperimentProfileSpec) {
+        cx.set_key_focus(Area::Empty);
+        let selected_language = self.field_text(cx, ids!(language_input));
+
+        for path in experiment_profile_paths(spec.stem) {
+            if !path.exists() {
+                continue;
+            }
+
+            match load_operator_gui_profile(&path) {
+                Ok(profile) => {
+                    self.apply_profile_fields(cx, &profile.makepad_gui_fields);
+                    self.restore_selected_language(cx, &selected_language);
+                    self.set_field_text(cx, ids!(profile_path_input), &path.display().to_string());
+                    self.set_status(cx, "Condition selected", spec.label);
+                    self.set_last_response(
+                        cx,
+                        &serde_json::to_string_pretty(&profile)
+                            .unwrap_or_else(|_| format!("Loaded {}.", spec.label)),
+                    );
+                    return;
+                }
+                Err(err) => {
+                    self.set_status(cx, "Profile error", &err);
+                    self.set_last_response(cx, &err);
+                    return;
+                }
+            }
+        }
+
+        self.apply_experiment_profile_fallback(cx, spec);
+        self.restore_selected_language(cx, &selected_language);
+        self.set_status(cx, "Condition selected", spec.label);
+        self.set_last_response(
+            cx,
+            &format!(
+                "Applied built-in {label} profile fallback for package {package}.",
+                label = spec.label,
+                package = spec.package
+            ),
+        );
+    }
+
+    fn restore_selected_language(&self, cx: &mut Cx, selected_language: &str) {
+        if !selected_language.trim().is_empty() {
+            self.set_field_text(cx, ids!(language_input), selected_language);
+        }
+    }
+
+    fn apply_experiment_profile_fallback(&self, cx: &mut Cx, spec: ExperimentProfileSpec) {
+        self.set_field_text(cx, ids!(runtime_apk_input), spec.apk_path);
+        self.set_field_text(cx, ids!(runtime_apk_sha256_input), spec.apk_sha256);
+        self.set_field_text(cx, ids!(runtime_apk_report_input), spec.apk_report);
+        self.set_field_text(cx, ids!(runtime_pull_out_input), spec.pull_out);
+        self.set_field_text(
+            cx,
+            ids!(runtime_protocol_input),
+            "viscereality.peripersonal.operator.v1",
+        );
+        self.set_field_text(cx, ids!(runtime_kind_input), DEFAULT_RUNTIME_KIND);
+        self.set_field_text(cx, ids!(runtime_package_input), spec.package);
+        self.set_field_text(
+            cx,
+            ids!(runtime_study_input),
+            "peripersonal-space-experiment",
+        );
+        self.set_field_text(cx, ids!(runtime_condition_input), spec.condition_id);
+        self.set_field_text(cx, ids!(runtime_build_tag_input), spec.build_tag);
+        self.set_field_text(
+            cx,
+            ids!(runtime_source_scene_input),
+            "Assets/Scenes/Space.unity",
+        );
+        self.set_field_text(cx, ids!(runtime_questionnaire_input), "");
+        self.set_field_text(cx, ids!(runtime_stage_input), "");
+        self.set_field_text(cx, ids!(runtime_marker_input), "condition_start");
+        self.set_field_text(cx, ids!(runtime_remote_input), "");
+    }
+
+    fn text_input_has_key_focus(&self, cx: &Cx) -> bool {
+        self.ui.text_input(cx, ids!(endpoint_input)).key_focus(cx)
+            || self.ui.text_input(cx, ids!(session_input)).key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(participant_input))
+                .key_focus(cx)
+            || self.ui.text_input(cx, ids!(language_input)).key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(profile_path_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(device_serial_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(device_status_out_input))
+                .key_focus(cx)
+            || self.ui.text_input(cx, ids!(panel_apk_input)).key_focus(cx)
+            || self.ui.text_input(cx, ids!(host_port_input)).key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(device_port_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_protocol_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_apk_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_apk_sha256_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_apk_report_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_kind_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_package_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_study_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_condition_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_build_tag_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_source_scene_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_questionnaire_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_stage_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_marker_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_remote_input))
+                .key_focus(cx)
+            || self
+                .ui
+                .text_input(cx, ids!(runtime_pull_out_input))
+                .key_focus(cx)
+    }
+
+    fn handle_block_shortcut(&mut self, cx: &mut Cx, event: &Event) -> bool {
+        let Event::KeyDown(key_event) = event else {
+            return false;
+        };
+
+        if key_event.is_repeat
+            || key_event.modifiers.control
+            || key_event.modifiers.alt
+            || key_event.modifiers.logo
+            || self.text_input_has_key_focus(cx)
+        {
+            return false;
+        }
+
+        match key_event.key_code {
+            KeyCode::Key1 | KeyCode::Numpad1 => {
+                self.send_block_request(cx, &BLOCK1);
+                true
+            }
+            KeyCode::Key2 | KeyCode::Numpad2 => {
+                self.send_block_request(cx, &BLOCK2);
+                true
+            }
+            KeyCode::Key3 | KeyCode::Numpad3 => {
+                self.send_block_request(cx, &BLOCK3);
+                true
+            }
+            _ => false,
+        }
     }
 
     fn refresh_tooling(&self, cx: &mut Cx) {
@@ -943,6 +1277,8 @@ impl App {
     }
 
     fn send_runtime_preflight_request(&mut self, cx: &mut Cx) {
+        cx.set_key_focus(Area::Empty);
+
         if self.active_request_id.is_some() {
             self.set_status(cx, "Busy", "A bridge request is already in flight.");
             return;
@@ -970,26 +1306,24 @@ impl App {
     }
 
     fn send_block_request(&mut self, cx: &mut Cx, block: &'static crate::protocol::BlockSpec) {
-        let endpoint = self.field_text(cx, ids!(endpoint_input));
-        let url = match endpoint_url(&endpoint, "/v1/command") {
-            Ok(url) => url,
-            Err(message) => {
-                self.set_status(cx, "Endpoint error", &message);
-                return;
-            }
+        if !self.require_matching_runtime_preflight(cx) {
+            return;
+        }
+
+        let url = match self.command_url(cx) {
+            Some(url) => url,
+            None => return,
         };
 
         self.request_counter += 1;
-        let command_id = format!("operator-{:06}", self.request_counter);
-        let body = OperatorCommandRequest::open_block(
-            command_id,
-            block,
-            self.field_text(cx, ids!(session_input)),
-            self.field_text(cx, ids!(participant_input)),
-            self.field_text(cx, ids!(language_input)),
+        let body = RuntimeOperatorCommandRequest::open_questionnaire(
+            format!("runtime-block-{:06}", self.request_counter),
+            self.runtime_protocol(cx),
+            self.runtime_target(cx),
+            self.runtime_panel_request_for_block(cx, block),
         );
 
-        self.send_command_request(cx, url, body, &format!("Sending {}", block.label));
+        self.send_command_request(cx, url, body, &format!("Opening {}", block.label));
     }
 
     fn send_dismiss_request(&mut self, cx: &mut Cx) {
@@ -1236,6 +1570,47 @@ impl App {
         }
     }
 
+    fn runtime_panel_request_for_block(
+        &self,
+        cx: &Cx,
+        block: &'static crate::protocol::BlockSpec,
+    ) -> RuntimePanelLaunchSpec {
+        let questionnaire_id = self.runtime_questionnaire_id(cx);
+        let open_stage = block.open_stage.to_string();
+        RuntimePanelLaunchSpec {
+            protocol_version: PANEL_PROTOCOL_VERSION.to_string(),
+            session_id: self.field_text(cx, ids!(session_input)),
+            study_id: self.field_text(cx, ids!(runtime_study_input)),
+            schema_id: questionnaire_id.clone(),
+            questionnaire_id,
+            open_stage: open_stage.clone(),
+            screen_sequence: block
+                .screen_sequence
+                .iter()
+                .map(|stage| (*stage).to_string())
+                .collect(),
+            condition_number: -1,
+            participant_ref: self.field_text(cx, ids!(participant_input)),
+            caller_package_name: self.field_text(cx, ids!(runtime_package_input)),
+            caller_app_version: String::new(),
+            questionnaire_state: Some(RuntimeQuestionnaireStateSpec {
+                language_code: self.field_text(cx, ids!(language_input)),
+                condition_id: self.field_text(cx, ids!(runtime_condition_input)),
+                operator_stage: open_stage,
+                ..RuntimeQuestionnaireStateSpec::default()
+            }),
+        }
+    }
+
+    fn runtime_questionnaire_id(&self, cx: &Cx) -> String {
+        let value = self.field_text(cx, ids!(runtime_questionnaire_input));
+        if value.trim().is_empty() {
+            crate::protocol::SCHEMA_ID.to_string()
+        } else {
+            value
+        }
+    }
+
     fn runtime_status_expectation(&self, cx: &Cx) -> RuntimeStatusExpectation {
         RuntimeStatusExpectation {
             runtime_kind: Some(self.runtime_kind(cx)),
@@ -1457,13 +1832,37 @@ impl MatchEvent for App {
 
         if self
             .ui
+            .button(cx, ids!(quick_devices_button))
+            .clicked(actions)
+        {
+            self.refresh_devices(cx);
+        }
+
+        if self
+            .ui
             .button(cx, ids!(device_status_button))
             .clicked(actions)
         {
             self.refresh_device_status(cx);
         }
 
+        if self
+            .ui
+            .button(cx, ids!(quick_status_button))
+            .clicked(actions)
+        {
+            self.refresh_device_status(cx);
+        }
+
         if self.ui.button(cx, ids!(forward_button)).clicked(actions) {
+            self.forward_bridge(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_forward_button))
+            .clicked(actions)
+        {
             self.forward_bridge(cx);
         }
 
@@ -1485,7 +1884,31 @@ impl MatchEvent for App {
 
         if self
             .ui
+            .button(cx, ids!(language_english_button))
+            .clicked(actions)
+        {
+            self.set_operator_language(cx, "en", "English");
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(language_german_button))
+            .clicked(actions)
+        {
+            self.set_operator_language(cx, "de", "German");
+        }
+
+        if self
+            .ui
             .button(cx, ids!(runtime_verify_apk_button))
+            .clicked(actions)
+        {
+            self.verify_runtime_apk(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_verify_apk_button))
             .clicked(actions)
         {
             self.verify_runtime_apk(cx);
@@ -1501,10 +1924,58 @@ impl MatchEvent for App {
 
         if self
             .ui
+            .button(cx, ids!(quick_install_apk_button))
+            .clicked(actions)
+        {
+            self.install_runtime_apk(cx);
+        }
+
+        if self
+            .ui
             .button(cx, ids!(runtime_launch_button))
             .clicked(actions)
         {
             self.launch_runtime(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_launch_button))
+            .clicked(actions)
+        {
+            self.launch_runtime(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(condition_left_visible_button))
+            .clicked(actions)
+        {
+            self.select_experiment_profile(cx, LEFT_VISIBLE_PROFILE);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(condition_right_visible_button))
+            .clicked(actions)
+        {
+            self.select_experiment_profile(cx, RIGHT_VISIBLE_PROFILE);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(condition_left_anchor_button))
+            .clicked(actions)
+        {
+            self.select_experiment_profile(cx, LEFT_ANCHOR_PROFILE);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(condition_right_anchor_button))
+            .clicked(actions)
+        {
+            self.select_experiment_profile(cx, RIGHT_ANCHOR_PROFILE);
         }
 
         if self.ui.button(cx, ids!(block1_button)).clicked(actions) {
@@ -1529,7 +2000,23 @@ impl MatchEvent for App {
 
         if self
             .ui
+            .button(cx, ids!(quick_preflight_button))
+            .clicked(actions)
+        {
+            self.send_runtime_preflight_request(cx);
+        }
+
+        if self
+            .ui
             .button(cx, ids!(runtime_start_button))
+            .clicked(actions)
+        {
+            self.send_runtime_start_request(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_start_button))
             .clicked(actions)
         {
             self.send_runtime_start_request(cx);
@@ -1543,9 +2030,21 @@ impl MatchEvent for App {
             self.send_runtime_marker_request(cx);
         }
 
+        if self.ui.button(cx, ids!(quick_mark_button)).clicked(actions) {
+            self.send_runtime_marker_request(cx);
+        }
+
         if self
             .ui
             .button(cx, ids!(runtime_open_button))
+            .clicked(actions)
+        {
+            self.send_runtime_open_request(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_open_q_button))
             .clicked(actions)
         {
             self.send_runtime_open_request(cx);
@@ -1559,6 +2058,10 @@ impl MatchEvent for App {
             self.send_runtime_stop_request(cx);
         }
 
+        if self.ui.button(cx, ids!(quick_stop_button)).clicked(actions) {
+            self.send_runtime_stop_request(cx);
+        }
+
         if self
             .ui
             .button(cx, ids!(runtime_pull_button))
@@ -1567,9 +2070,21 @@ impl MatchEvent for App {
             self.send_runtime_pull_request(cx);
         }
 
+        if self.ui.button(cx, ids!(quick_pull_button)).clicked(actions) {
+            self.send_runtime_pull_request(cx);
+        }
+
         if self
             .ui
             .button(cx, ids!(runtime_pull_files_button))
+            .clicked(actions)
+        {
+            self.pull_runtime_files(cx);
+        }
+
+        if self
+            .ui
+            .button(cx, ids!(quick_pull_files_button))
             .clicked(actions)
         {
             self.pull_runtime_files(cx);
@@ -1588,7 +2103,8 @@ impl MatchEvent for App {
             .get_string_body()
             .unwrap_or_else(|| "<empty response body>".to_string());
 
-        if !(200..300).contains(&response.status_code) {
+        let local_json_body = response.status_code == 0 && raw.trim_start().starts_with('{');
+        if !(200..300).contains(&response.status_code) && !local_json_body {
             self.fail(
                 cx,
                 format!("HTTP {} from bridge: {}", response.status_code, raw),
@@ -1639,7 +2155,31 @@ impl AppMain for App {
     fn handle_event(&mut self, cx: &mut Cx, event: &Event) {
         self.match_event(cx, event);
         self.ui.handle_event(cx, event, &mut Scope::empty());
+        self.handle_block_shortcut(cx, event);
     }
+}
+
+fn experiment_profile_paths(stem: &str) -> Vec<PathBuf> {
+    let file_name = format!("{stem}.operator-profile.json");
+    let mut paths = Vec::new();
+
+    if let Ok(current_dir) = std::env::current_dir() {
+        paths.push(current_dir.join("profiles").join(&file_name));
+        paths.push(
+            current_dir
+                .join("operator")
+                .join("profiles")
+                .join(&file_name),
+        );
+    }
+
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            paths.push(exe_dir.join("profiles").join(&file_name));
+        }
+    }
+
+    paths
 }
 
 fn parse_port(raw: &str, label: &str) -> Result<u16, String> {

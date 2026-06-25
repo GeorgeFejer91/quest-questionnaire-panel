@@ -18,12 +18,8 @@ pub struct BlockSpec {
 pub const BLOCK1: BlockSpec = BlockSpec {
     command_name: "maia_spatial.block1",
     label: "Block 1",
-    open_stage: "maia_spatial:language_selection",
-    screen_sequence: &[
-        "maia_spatial:language_selection",
-        "maia_spatial:demographics",
-        "maia_spatial:maia2",
-    ],
+    open_stage: "maia_spatial:demographics",
+    screen_sequence: &["maia_spatial:demographics", "maia_spatial:maia2"],
 };
 
 pub const BLOCK2: BlockSpec = BlockSpec {
