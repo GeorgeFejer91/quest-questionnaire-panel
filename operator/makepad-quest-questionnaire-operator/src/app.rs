@@ -61,8 +61,12 @@ script_mod! {
                                 spacing: 2.0
                                 Label{
                                     text: "Quest Questionnaire Operator"
-                                    draw_text.color: #x111827
-                                    draw_text.text_style.font_size: 10.0
+                                    draw_text +: {
+                                        color: #x111827
+                                        text_style: theme.font_bold{
+                                            font_size: 10.0
+                                        }
+                                    }
                                 }
                                 status_detail := StatusValue{
                                     text: "Waiting for bridge status."
@@ -72,8 +76,12 @@ script_mod! {
                             status_title := Label{
                                 width: 160
                                 text: "Idle"
-                                draw_text.color: #x0f766e
-                                draw_text.text_style.font_size: 10.0
+                                draw_text +: {
+                                    color: #x0f766e
+                                    text_style: theme.font_bold{
+                                        font_size: 10.0
+                                    }
+                                }
                             }
                         }
 
@@ -84,7 +92,7 @@ script_mod! {
                             spacing: 12.0
                             padding: Inset{top: 12.0 right: 14.0 bottom: 14.0 left: 14.0}
 
-                            View{
+                            ScrollYView{
                                 width: 330
                                 height: Fill
                                 flow: Down
@@ -148,6 +156,7 @@ script_mod! {
                                         flow: Right
                                         spacing: 8.0
                                         profile_path_input := Field{
+                                            text: "operator\\profiles\\peri-personal-left-visible.operator-profile.json"
                                             empty_text: "operator profile JSON"
                                         }
                                         load_profile_button := SecondaryButton{text: "Load"}
@@ -169,7 +178,7 @@ script_mod! {
 
                                     FieldLabel{text: "Panel APK"}
                                     panel_apk_input := Field{
-                                        text: "app/build/outputs/apk/minimal/debug/app-minimal-debug.apk"
+                                        text: "apks\\questionnaire-panel\\quest-questionnaire-panel-minimal-debug.apk"
                                         empty_text: "panel APK path"
                                     }
 
@@ -226,16 +235,18 @@ script_mod! {
 
                                     FieldLabel{text: "Protocol"}
                                     runtime_protocol_input := Field{
-                                        text: "target.runtime.operator.v1"
+                                        text: "viscereality.peripersonal.operator.v1"
                                     }
 
                                     FieldLabel{text: "Target APK"}
                                     runtime_apk_input := Field{
+                                        text: "apks\\unity\\viscereality-peri-personal-left-visible.apk"
                                         empty_text: "target APK path"
                                     }
 
                                     FieldLabel{text: "APK SHA-256"}
                                     runtime_apk_sha256_input := Field{
+                                        text: "efd687e99ed1f79718cbdb6a61af180b902df66a98bcd65f7f85201b48bb051a"
                                         empty_text: "optional expected digest"
                                     }
 
@@ -246,6 +257,7 @@ script_mod! {
                                         flow: Right
                                         spacing: 8.0
                                         runtime_apk_report_input := Field{
+                                            text: "artifacts\\target-apk-verification\\peri-personal-left-visible.json"
                                             empty_text: "optional report JSON"
                                         }
                                         runtime_verify_apk_button := SecondaryButton{text: "Verify APK"}
@@ -271,7 +283,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Runtime kind"}
                                             runtime_kind_input := Field{
-                                                text: "target_quest_apk"
+                                                text: "unity_quest_apk"
                                             }
                                         }
                                         View{
@@ -280,6 +292,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Package"}
                                             runtime_package_input := Field{
+                                                text: "com.Viscereality.ViscerealityPeriPersonalLeftVisible"
                                                 empty_text: "runtime package"
                                             }
                                         }
@@ -296,7 +309,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Study"}
                                             runtime_study_input := Field{
-                                                text: "target-study"
+                                                text: "peripersonal-space-experiment"
                                             }
                                         }
                                         View{
@@ -305,6 +318,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Condition"}
                                             runtime_condition_input := Field{
+                                                text: "peri-personal-left-visible"
                                                 empty_text: "condition id"
                                             }
                                         }
@@ -321,6 +335,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Build tag"}
                                             runtime_build_tag_input := Field{
+                                                text: "apk/2026-06-19/viscereality-peri-personal-left-visible"
                                                 empty_text: "apk variant"
                                             }
                                         }
@@ -346,7 +361,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Questionnaire"}
                                             runtime_questionnaire_input := Field{
-                                                text: "target-questionnaire-v1"
+                                                text: "maia2-spatial-frame-questionnaire-v1"
                                             }
                                         }
                                         View{
@@ -355,7 +370,7 @@ script_mod! {
                                             flow: Down
                                             FieldLabel{text: "Stage"}
                                             runtime_stage_input := Field{
-                                                text: "target:intro"
+                                                text: "maia_spatial:language_selection"
                                             }
                                         }
                                     }

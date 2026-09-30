@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Peripersonal Retrofuturistic VR</title>
+  <desc id="desc">Black and white retrofuturistic VR app icon with visor, orbit ring, and scanline geometry.</desc>
+  <rect width="1024" height="1024" rx="176" fill="#000"/>
+  <circle cx="512" cy="512" r="388" fill="none" stroke="#fff" stroke-width="36"/>
+  <path d="M172 539c95-205 585-205 680 0" fill="none" stroke="#fff" stroke-width="34" stroke-linecap="round"/>
+  <path d="M259 430c32-62 91-99 159-99h188c68 0 127 37 159 99l62 119c24 46-9 101-61 101H258c-52 0-85-55-61-101l62-119z" fill="#fff"/>
+  <path d="M283 471c21-41 62-66 107-66h244c45 0 86 25 107 66l41 80c8 15-3 33-20 33H262c-17 0-28-18-20-33l41-80z" fill="#000"/>
+  <path d="M347 486h330M379 535h266" fill="none" stroke="#fff" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="394" cy="535" r="34" fill="#fff"/>
+  <circle cx="630" cy="535" r="34" fill="#fff"/>
+  <path d="M222 743h580M286 801h452M378 859h268" fill="none" stroke="#fff" stroke-width="26" stroke-linecap="round"/>
+  <path d="M512 150v96M512 778v96M150 512h96M778 512h96" fill="none" stroke="#fff" stroke-width="30" stroke-linecap="round"/>
+  <path d="M320 276l54 54M704 276l-54 54" fill="none" stroke="#fff" stroke-width="24" stroke-linecap="round"/>
+</svg>
